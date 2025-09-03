@@ -4,11 +4,14 @@ import net.minecraft.src.*;
 import org.lwjgl.opengl.GL11;
 
 import java.lang.reflect.Field;
+import java.util.HashMap;
+import java.util.Map;
 
 public class FrontViewHelper {
     public static int thirdPersonView = 0;
     private static boolean photoMode = false;
     private static Class photoModeClass;
+    private static final Map<String, Field> cachedFields = new HashMap<>();
 
     public static void handlePhotoModeCompatibility(GuiScreen screen) {
         if(isPhotoModeScreen(screen)) {
@@ -27,11 +30,17 @@ public class FrontViewHelper {
 
     private static Float getFieldValue(GuiScreen screen, String name) {
         try {
-            Field field = photoModeClass.getField(name);
+            Field field = cachedFields.computeIfAbsent(name, n -> {
+                try {
+                    Field f = photoModeClass.getDeclaredField(n);
+                    f.setAccessible(true);
+                    return f;
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            });
             return field.getFloat(screen);
-        } catch (NoSuchFieldException e) {
-            throw new RuntimeException(e);
-        } catch (IllegalAccessException e) {
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
@@ -40,10 +49,10 @@ public class FrontViewHelper {
         try {
             photoModeClass = Class.forName("GuiPhotoMode");
             photoMode = photoModeClass != null;
-            System.out.println("PhotoMode has been found");
+            System.out.println("FrontView: PhotoMode has been installed");
         } catch (ClassNotFoundException e) {
             photoMode = false;
-            System.out.println("FrontViewPhotoMode not installed");
+            System.out.println("FrontView: PhotoMode hasn't installed");
         }
     }
 
